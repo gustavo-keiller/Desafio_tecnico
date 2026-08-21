@@ -1,0 +1,84 @@
+# ==========================================
+# Dependencies & Package Managers
+# ==========================================
+node_modules/
+*/node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnpm-store
+
+# ==========================================
+# Build Outputs & Compilations
+# ==========================================
+dist/
+*/dist/
+build/
+*/build/
+out/
+*/out/
+.next/
+*/.next/
+.turbo/
+*/.turbo/
+.tsbuildinfo
+*.tsbuildinfo
+
+# ==========================================
+# Local Databases & SQLite Storage
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+!*.env.example
+
+# ==========================================
+# Logs & Process Monitoring
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Coverage & Test Artifacts
+# ==========================================
+coverage/
+*/coverage/
+.nyc_output/
+
+# ==========================================
+# OS & IDE Metadata
+# ==========================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+frontend/CLAUDE.md
+frontend/README.md
+backend/README.md
