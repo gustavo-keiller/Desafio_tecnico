@@ -30,8 +30,8 @@ describe('Gestão de Pedidos ERP - Testes E2E', () => {
   const client1Id = '11111111-1111-1111-1111-111111111111'; // Alice (Cliente)
   const client2Id = '22222222-2222-2222-2222-222222222222'; // Bob (Cliente)
   const managerId = '33333333-3333-3333-3333-333333333333'; // Joe (Gerente Estoque)
-  const adminId = '44444444-4444-4444-4444-444444444444';   // Super Admin
-  const sellerId = '66666666-6666-6666-6666-666666666666';  // Sally (Vendedor)
+  const adminId = '44444444-4444-4444-4444-444444444444'; // Super Admin
+  const sellerId = '66666666-6666-6666-6666-666666666666'; // Sally (Vendedor)
 
   let productAId = '';
 
@@ -42,7 +42,17 @@ describe('Gestão de Pedidos ERP - Testes E2E', () => {
         TypeOrmModule.forRoot({
           type: 'better-sqlite3',
           database: ':memory:',
-          entities: [Customer, Product, Stock, Order, OrderItem, StockReservation, StockMovement, User, RolePermission],
+          entities: [
+            Customer,
+            Product,
+            Stock,
+            Order,
+            OrderItem,
+            StockReservation,
+            StockMovement,
+            User,
+            RolePermission,
+          ],
           synchronize: true,
           dropSchema: true,
         }),
@@ -65,31 +75,76 @@ describe('Gestão de Pedidos ERP - Testes E2E', () => {
 
     // Ensure Role Permissions
     const rolePermissionRepo = dataSource.getRepository(RolePermission);
-    for (const [role, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const [role, permissions] of Object.entries(
+      DEFAULT_ROLE_PERMISSIONS,
+    )) {
       await rolePermissionRepo.save({ role, permissions });
     }
 
     // Ensure Users
     const userRepo = dataSource.getRepository(User);
     await userRepo.save([
-      { id: client1Id, name: 'Alice (Cliente VIP)', email: 'alice@example.com', role: UserRole.CLIENT, isVip: true },
-      { id: client2Id, name: 'Bob (Cliente)', email: 'bob@example.com', role: UserRole.CLIENT, isVip: false },
-      { id: managerId, name: 'Joe (Gerente Estoque)', email: 'joe@example.com', role: UserRole.INVENTORY_MANAGER, isVip: false },
-      { id: adminId, name: 'Super Admin', email: 'admin@example.com', role: UserRole.ADMIN, isVip: false },
-      { id: sellerId, name: 'Sally (Vendedor)', email: 'sally@example.com', role: UserRole.SELLER, isVip: false },
+      {
+        id: client1Id,
+        name: 'Alice (Cliente VIP)',
+        email: 'alice@example.com',
+        role: UserRole.CLIENT,
+        isVip: true,
+      },
+      {
+        id: client2Id,
+        name: 'Bob (Cliente)',
+        email: 'bob@example.com',
+        role: UserRole.CLIENT,
+        isVip: false,
+      },
+      {
+        id: managerId,
+        name: 'Joe (Gerente Estoque)',
+        email: 'joe@example.com',
+        role: UserRole.INVENTORY_MANAGER,
+        isVip: false,
+      },
+      {
+        id: adminId,
+        name: 'Super Admin',
+        email: 'admin@example.com',
+        role: UserRole.ADMIN,
+        isVip: false,
+      },
+      {
+        id: sellerId,
+        name: 'Sally (Vendedor)',
+        email: 'sally@example.com',
+        role: UserRole.SELLER,
+        isVip: false,
+      },
     ]);
 
     // Ensure Customers
     const customerRepo = dataSource.getRepository(Customer);
     await customerRepo.save([
-      { id: client1Id, name: 'Alice Smith', email: 'alice@example.com', isVip: true },
-      { id: client2Id, name: 'Bob Jones', email: 'bob@example.com', isVip: false },
+      {
+        id: client1Id,
+        name: 'Alice Smith',
+        email: 'alice@example.com',
+        isVip: true,
+      },
+      {
+        id: client2Id,
+        name: 'Bob Jones',
+        email: 'bob@example.com',
+        isVip: false,
+      },
     ]);
 
     // Ensure Initial Product
     const productRepo = dataSource.getRepository(Product);
     const stockRepo = dataSource.getRepository(Stock);
-    const prodA = await productRepo.save({ name: 'Produto Teste A', price: 100 });
+    const prodA = await productRepo.save({
+      name: 'Produto Teste A',
+      price: 100,
+    });
     productAId = prodA.id;
     await stockRepo.save({ productId: productAId, availableQuantity: 10 });
   });
@@ -365,7 +420,10 @@ describe('Gestão de Pedidos ERP - Testes E2E', () => {
         .post('/orders')
         .set('x-user-id', sellerId)
         .set('x-user-role', 'Seller')
-        .send({ customerId: client1Id, items: [{ productId: prodId, quantity: 10 }] })
+        .send({
+          customerId: client1Id,
+          items: [{ productId: prodId, quantity: 10 }],
+        })
         .expect(201);
       const oId = orderRes.body.id;
 

@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Product } from '../entities/product.entity';
 import { Stock } from '../entities/stock.entity';
 import {
   StockMovement,
   StockMovementType,
 } from '../entities/stock-movement.entity';
+
+import { applyStockMutation } from '../common/stock-mutation.helper';
 
 @Injectable()
 export class ProductsService {
@@ -58,26 +64,35 @@ export class ProductsService {
     return stock || { availableQuantity: 0 };
   }
 
+  /**
+   * Ponto centralizado de mutação atômica de estoque e auditoria contábil.
+   */
+  async applyStockMutation(
+    manager: EntityManager,
+    productId: string,
+    delta: number,
+    type: StockMovementType,
+    referenceId?: string,
+  ): Promise<Stock> {
+    return applyStockMutation(
+      this.dataSource,
+      manager,
+      productId,
+      delta,
+      type,
+      referenceId,
+    );
+  }
+
   async replenishStock(productId: string, quantity: number) {
     return this.dataSource.transaction(async (manager) => {
-      const type = this.dataSource.options.type as string;
-      const isSqlite = type === 'better-sqlite3' || type === 'sqlite';
-      const stock = await manager.findOne(Stock, {
-        where: { productId },
-        ...(isSqlite ? {} : { lock: { mode: 'pessimistic_write' } }),
-      });
-      if (!stock) throw new NotFoundException('Estoque não encontrado');
-
-      stock.availableQuantity += quantity;
-      await manager.save(stock);
-
-      const movement = new StockMovement();
-      movement.productId = productId;
-      movement.quantity = quantity;
-      movement.type = StockMovementType.IN;
-      await manager.save(movement);
-
-      return stock;
+      return this.applyStockMutation(
+        manager,
+        productId,
+        quantity,
+        StockMovementType.IN,
+        'Reposição Manual',
+      );
     });
   }
 }

@@ -19,6 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
   RESERVED: 'Em Separação',
   FINISHED: 'Concluído',
   ERROR: 'Erro',
+  CANCELED: 'Cancelado',
   CANCELADO: 'Cancelado',
 };
 
@@ -105,8 +106,6 @@ export default function Home() {
     setPage(1);
   };
 
-  if (error) return <div style={{ color: 'var(--danger)', padding: '2rem' }}>{error}</div>;
-
   return (
     <div>
       {/* Header Banner */}
@@ -126,6 +125,22 @@ export default function Home() {
           </Link>
         )}
       </div>
+
+      {error && (
+        <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#991B1B', padding: '1rem 1.25rem', borderRadius: '10px', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong>Falha de conexão com a API:</strong> {error}
+          </div>
+          <button 
+            type="button"
+            className="btn btn-outline" 
+            style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', borderColor: '#F87171', color: '#991B1B' }} 
+            onClick={() => { setError(''); fetchOrders(); }}
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      )}
 
       {/* Executive KPI Metric Tiles */}
       <div className="grid grid-cols-4 gap-4 mb-4">
@@ -212,7 +227,7 @@ export default function Home() {
               { key: 'APPROVED', label: 'Aprovados (Fila)' },
               { key: 'RESERVED', label: 'Em Separação' },
               { key: 'FINISHED', label: 'Concluídos' },
-              { key: 'CANCELADO', label: 'Cancelados' },
+              { key: 'CANCELED', label: 'Cancelados' },
             ].map(tab => (
               <button
                 key={tab.key}

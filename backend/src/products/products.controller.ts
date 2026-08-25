@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Post, Body, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Body,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { IsString, IsNumber, Min } from 'class-validator';
 import { ProductsService } from './products.service';

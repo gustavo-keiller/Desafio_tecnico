@@ -17,7 +17,7 @@ export class Stock {
   id: string;
 
   @Index()
-  @Column()
+  @Column({ unique: true })
   productId: string;
 
   @OneToOne(() => Product, (product) => product.stock)

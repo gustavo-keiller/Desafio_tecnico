@@ -96,6 +96,12 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {error && (
+        <div style={{ background: 'var(--danger)', color: 'white', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
+
       {createError && (
         <div style={{ background: 'var(--danger)', color: 'white', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
           {createError}

@@ -11,7 +11,7 @@ import { Order } from './order.entity';
 import { Product } from './product.entity';
 
 @Entity('order_items')
-@Check(`"quantity" > 0 AND "unitPrice" >= 0`)
+@Check(`"quantity" >= 0 AND "unitPrice" >= 0`)
 export class OrderItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

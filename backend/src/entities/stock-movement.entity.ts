@@ -41,8 +41,9 @@ export class StockMovement {
 
   @Index()
   @Column({ nullable: true })
-  referenceId: string; // e.g., orderId
+  referenceId?: string;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 }

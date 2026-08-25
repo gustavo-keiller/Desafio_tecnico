@@ -9,6 +9,8 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
@@ -41,7 +43,8 @@ export class OrdersController {
   @Get('stats')
   @RequirePermissions(Permission.ORDERS_READ_ALL, Permission.ORDERS_READ_OWN)
   async getStats(@Request() req: any) {
-    const userPerms = await this.permissionsService.getEffectivePermissionsForUser(req.user);
+    const userPerms =
+      await this.permissionsService.getEffectivePermissionsForUser(req.user);
     if (!userPerms.includes(Permission.ORDERS_READ_ALL)) {
       return this.ordersService.getStats(req.user.id);
     }
@@ -51,15 +54,21 @@ export class OrdersController {
   @Post()
   @RequirePermissions(Permission.ORDERS_CREATE)
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
-    // If user has only own-orders permission or no customerId passed, bind to self
-    if (req.user.role === 'Client' || !createOrderDto.customerId) {
+    // If client, force customerId to self. If Seller/Admin, customerId is mandatory.
+    if (req.user.role === 'Client') {
       createOrderDto.customerId = req.user.id;
+    } else if (!createOrderDto.customerId) {
+      throw new BadRequestException(
+        'Para criar pedidos como Vendedor ou Administrador, é obrigatório selecionar um cliente (customerId).',
+      );
     }
 
     // Determine priority based on VIP customer status
     const targetUserId = createOrderDto.customerId;
     const targetUser = await this.usersService.findById(targetUserId);
-    const priority = targetUser?.isVip ? QueuePriority.VIP_CLIENT : QueuePriority.STANDARD;
+    const priority = targetUser?.isVip
+      ? QueuePriority.VIP_CLIENT
+      : QueuePriority.STANDARD;
 
     return this.orderQueueService.enqueue(
       priority,
@@ -80,7 +89,8 @@ export class OrdersController {
     const p = page ? Number(page) : 1;
     const l = limit ? Number(limit) : 10;
 
-    const userPerms = await this.permissionsService.getEffectivePermissionsForUser(req.user);
+    const userPerms =
+      await this.permissionsService.getEffectivePermissionsForUser(req.user);
     if (!userPerms.includes(Permission.ORDERS_READ_ALL)) {
       // User can only view their own orders
       return this.ordersService.findAll(req.user.id, p, l, status, search);
@@ -92,11 +102,19 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDERS_READ_ALL, Permission.ORDERS_READ_OWN)
   async findOne(@Param('id') id: string, @Request() req: any) {
     const order = await this.ordersService.findOne(id);
-    if (!order) return null;
+    if (!order) {
+      throw new NotFoundException(`Pedido ${id} não encontrado`);
+    }
 
-    const userPerms = await this.permissionsService.getEffectivePermissionsForUser(req.user);
-    if (!userPerms.includes(Permission.ORDERS_READ_ALL) && order.customerId !== req.user.id) {
-      throw new ForbiddenException('Você só pode acessar seus próprios pedidos.');
+    const userPerms =
+      await this.permissionsService.getEffectivePermissionsForUser(req.user);
+    if (
+      !userPerms.includes(Permission.ORDERS_READ_ALL) &&
+      order.customerId !== req.user.id
+    ) {
+      throw new ForbiddenException(
+        'Você só pode acessar seus próprios pedidos.',
+      );
     }
     return order;
   }
@@ -139,12 +157,21 @@ export class OrdersController {
     @Request() req: any,
   ) {
     const order = await this.ordersService.findOne(id);
-    const userPerms = await this.permissionsService.getEffectivePermissionsForUser(req.user);
-    if (!userPerms.includes(Permission.ORDERS_READ_ALL) && order?.customerId !== req.user.id) {
-      throw new ForbiddenException('Você só pode atualizar seus próprios pedidos.');
+    if (!order) {
+      throw new NotFoundException(`Pedido ${id} não encontrado`);
+    }
+    const userPerms =
+      await this.permissionsService.getEffectivePermissionsForUser(req.user);
+    if (
+      !userPerms.includes(Permission.ORDERS_READ_ALL) &&
+      order.customerId !== req.user.id
+    ) {
+      throw new ForbiddenException(
+        'Você só pode atualizar seus próprios pedidos.',
+      );
     }
 
-    if (req.user.role === 'Client' && order?.status !== 'ORDERED') {
+    if (req.user.role === 'Client' && order.status !== 'ORDERED') {
       throw new ForbiddenException(
         'Você só pode alterar pedidos que ainda estejam no status Criado (antes da aprovação/separação).',
       );
@@ -161,9 +188,18 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDERS_CANCEL)
   async cancel(@Param('id') id: string, @Request() req: any) {
     const order = await this.ordersService.findOne(id);
-    const userPerms = await this.permissionsService.getEffectivePermissionsForUser(req.user);
-    if (!userPerms.includes(Permission.ORDERS_READ_ALL) && order?.customerId !== req.user.id) {
-      throw new ForbiddenException('Você só pode cancelar seus próprios pedidos.');
+    if (!order) {
+      throw new NotFoundException(`Pedido ${id} não encontrado`);
+    }
+    const userPerms =
+      await this.permissionsService.getEffectivePermissionsForUser(req.user);
+    if (
+      !userPerms.includes(Permission.ORDERS_READ_ALL) &&
+      order.customerId !== req.user.id
+    ) {
+      throw new ForbiddenException(
+        'Você só pode cancelar seus próprios pedidos.',
+      );
     }
     return this.orderQueueService.enqueue(
       QueuePriority.CANCEL,
@@ -172,4 +208,3 @@ export class OrdersController {
     );
   }
 }
-

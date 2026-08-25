@@ -15,7 +15,14 @@ import { RolesGuard } from '../auth/roles/roles.guard';
 import { RequirePermissions } from '../auth/permissions/permissions.decorator';
 import { Permission } from '../auth/permissions/permissions.enum';
 import { UserRole } from '../entities/user.entity';
-import { IsEmail, IsEnum, IsOptional, IsString, IsArray, IsBoolean } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsBoolean,
+} from 'class-validator';
 
 class CreateUserBody implements CreateUserDto {
   @IsString() name: string;

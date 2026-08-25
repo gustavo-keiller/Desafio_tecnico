@@ -46,8 +46,6 @@ const ROLE_LABELS: Record<Role, string> = {
   InventoryManager: 'Gerente de Estoque',
 };
 
-const ROLES_LIST: Role[] = ['Admin', 'Seller', 'Client', 'InventoryManager'];
-
 export default function AdminUsersPage() {
   const { user, refreshUsers } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'vip'>('users');
@@ -476,7 +474,16 @@ export default function AdminUsersPage() {
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Permissão (Role)</label>
-                    <select className="form-control" value={role} onChange={e => setRole(e.target.value as Role)} required>
+                    <select 
+                      className="form-control" 
+                      value={role} 
+                      onChange={e => {
+                        const newRole = e.target.value as Role;
+                        setRole(newRole);
+                        if (newRole !== 'Client') setIsVip(false);
+                      }} 
+                      required
+                    >
                       <option value="Client">Cliente</option>
                       <option value="Seller">Vendedor</option>
                       <option value="InventoryManager">Gerente de Estoque</option>
@@ -486,18 +493,24 @@ export default function AdminUsersPage() {
                 </div>
 
                 <div className="flex justify-between items-center mt-3">
-                  <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      style={{ width: '18px', height: '18px' }} 
-                      checked={isVip} 
-                      onChange={e => setIsVip(e.target.checked)} 
-                    />
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <StarIcon size={14} color="#D97706" /> 
-                      <strong>Cliente VIP / Prioritário na Fila</strong> (Processado com alta prioridade de estoque)
-                    </span>
-                  </label>
+                  {role === 'Client' ? (
+                    <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px' }} 
+                        checked={isVip} 
+                        onChange={e => setIsVip(e.target.checked)} 
+                      />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <StarIcon size={14} color="#D97706" /> 
+                        <strong>Cliente VIP / Prioritário na Fila</strong> (10% de desconto e alta prioridade)
+                      </span>
+                    </label>
+                  ) : (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      * O status VIP é um benefício exclusivo para contas de <strong>Cliente</strong>.
+                    </div>
+                  )}
 
                   <button type="submit" className="btn btn-primary" disabled={creating}>
                     {creating ? 'Salvando...' : 'Cadastrar Usuário'}
@@ -522,7 +535,16 @@ export default function AdminUsersPage() {
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Permissão (Role)</label>
-                    <select className="form-control" value={editRole} onChange={e => setEditRole(e.target.value as Role)} required>
+                    <select 
+                      className="form-control" 
+                      value={editRole} 
+                      onChange={e => {
+                        const newRole = e.target.value as Role;
+                        setEditRole(newRole);
+                        if (newRole !== 'Client') setEditIsVip(false);
+                      }} 
+                      required
+                    >
                       <option value="Client">Cliente</option>
                       <option value="Seller">Vendedor</option>
                       <option value="InventoryManager">Gerente de Estoque</option>
@@ -532,18 +554,24 @@ export default function AdminUsersPage() {
                 </div>
 
                 <div className="flex justify-between items-center mt-3">
-                  <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      style={{ width: '18px', height: '18px' }} 
-                      checked={editIsVip} 
-                      onChange={e => setEditIsVip(e.target.checked)} 
-                    />
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <StarIcon size={14} color="#D97706" /> 
-                      <strong>Cliente VIP / Prioritário na Fila</strong> (Processado com alta prioridade de estoque)
-                    </span>
-                  </label>
+                  {editRole === 'Client' ? (
+                    <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px' }} 
+                        checked={editIsVip} 
+                        onChange={e => setEditIsVip(e.target.checked)} 
+                      />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <StarIcon size={14} color="#D97706" /> 
+                        <strong>Cliente VIP / Prioritário na Fila</strong> (10% de desconto e alta prioridade)
+                      </span>
+                    </label>
+                  ) : (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      * O status VIP é um benefício exclusivo para contas de <strong>Cliente</strong>.
+                    </div>
+                  )}
 
                   <div className="flex gap-2">
                     <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -661,7 +689,7 @@ export default function AdminUsersPage() {
                       <td style={{ fontFamily: 'monospace' }}>{u.id.slice(0, 8)}...</td>
                       <td style={{ fontWeight: '500' }}>
                         {u.name}
-                        {u.isVip && (
+                        {u.role === 'Client' && u.isVip && (
                           <span className="badge" style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
                             <StarIcon size={12} color="#D97706" /> VIP
                           </span>
@@ -689,20 +717,23 @@ export default function AdminUsersPage() {
                       <td>
                         <div className="flex gap-2">
                           <button
+                            type="button"
                             className="btn btn-outline"
                             style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                            onClick={() => { setEditingUser(u); setShowCreate(false); setPermEditingUser(null); }}
+                            onClick={() => startEdit(u)}
                           >
                             Editar
                           </button>
                           <button
+                            type="button"
                             className="btn btn-outline"
                             style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: '#93C5FD', color: '#2563EB' }}
-                            onClick={() => { setPermEditingUser(u); setEditingUser(null); setShowCreate(false); }}
+                            onClick={() => startUserPermsEdit(u)}
                           >
                             Permissões
                           </button>
                           <button
+                            type="button"
                             className="btn btn-danger"
                             style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                             onClick={() => handleDelete(u.id, u.name)}
@@ -736,10 +767,24 @@ export default function AdminUsersPage() {
               <thead>
                 <tr>
                   <th style={{ minWidth: '220px' }}>Permissão / Recurso</th>
-                  <th style={{ minWidth: '130px', textAlign: 'center' }}>Super Admin</th>
-                  <th style={{ minWidth: '130px', textAlign: 'center' }}>Vendedor</th>
-                  <th style={{ minWidth: '130px', textAlign: 'center' }}>Gerente Estoque</th>
-                  <th style={{ minWidth: '130px', textAlign: 'center' }}>Cliente</th>
+                  <th style={{ minWidth: '130px', textAlign: 'center' }}>
+                    Super Admin
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Todas (Total)</div>
+                  </th>
+                  {(['Seller', 'InventoryManager', 'Client'] as Role[]).map(r => (
+                    <th key={r} style={{ minWidth: '140px', textAlign: 'center' }}>
+                      <div>{ROLE_LABELS[r]}</div>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', marginTop: '0.25rem' }}
+                        disabled={savingRole === r}
+                        onClick={() => handleSaveRole(r)}
+                      >
+                        {savingRole === r ? 'Salvando...' : 'Salvar Cargo'}
+                      </button>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>

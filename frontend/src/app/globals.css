@@ -279,6 +279,7 @@ tr:last-child td {
   border-color: #FECACA;
 }
 
+.badge-CANCELED,
 .badge-CANCELADO {
   background-color: #FEE2E2;
   color: #991B1B;

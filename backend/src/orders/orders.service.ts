@@ -19,19 +19,38 @@ import {
   StockMovementType,
 } from '../entities/stock-movement.entity';
 
+import { applyStockMutation } from '../common/stock-mutation.helper';
+
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(Order) private orderRepository: Repository<Order>,
-    @InjectRepository(Product) private productRepository: Repository<Product>,
-    @InjectRepository(Customer)
-    private customerRepository: Repository<Customer>,
   ) {}
 
   private isSqlite(): boolean {
     const type = this.dataSource.options.type as string;
     return type === 'better-sqlite3' || type === 'sqlite';
+  }
+
+  /**
+   * Ponto centralizado e atômico de mutação de saldo de estoque.
+   */
+  private async applyStockMutation(
+    manager: EntityManager,
+    productId: string,
+    delta: number,
+    type: StockMovementType,
+    referenceId?: string,
+  ): Promise<Stock> {
+    return applyStockMutation(
+      this.dataSource,
+      manager,
+      productId,
+      delta,
+      type,
+      referenceId,
+    );
   }
 
   async createOrder(dto: CreateOrderDto): Promise<Order> {
@@ -70,7 +89,7 @@ export class OrdersService {
       }
 
       if (customer.isVip) {
-        const discount = Number((totalValue * 0.10).toFixed(2));
+        const discount = Number((totalValue * 0.1).toFixed(2));
         order.discountValue = discount;
         order.totalValue = Number((totalValue - discount).toFixed(2));
       } else {
@@ -147,24 +166,21 @@ export class OrdersService {
         }
 
         if (quantityToReserve > 0) {
-          // 4. Deduct stock
-          stock.availableQuantity -= quantityToReserve;
-          await manager.save(stock);
+          // 4 & 5. Atomically deduct stock and create audit ledger movement
+          await this.applyStockMutation(
+            manager,
+            item.productId,
+            -quantityToReserve,
+            StockMovementType.RESERVE,
+            order.id,
+          );
 
-          // 5. Create reservation
+          // 6. Create reservation record
           const reservation = new StockReservation();
           reservation.orderId = order.id;
           reservation.productId = item.productId;
           reservation.quantity = quantityToReserve;
           await manager.save(reservation);
-
-          // 6. Create audit movement
-          const movement = new StockMovement();
-          movement.productId = item.productId;
-          movement.quantity = -quantityToReserve;
-          movement.type = StockMovementType.RESERVE;
-          movement.referenceId = order.id;
-          await manager.save(movement);
 
           // Update item quantity on the order and recalc value
           item.quantity = quantityToReserve;
@@ -172,10 +188,9 @@ export class OrdersService {
           newTotalValue += Number(item.unitPrice) * quantityToReserve;
           anyItemReserved = true;
         } else {
-          // 0 available, delete item from order if partial
-          await manager.remove(item);
-          // Remove from memory to prevent TypeORM cascade re-insertion error
-          order.items = order.items.filter((i) => i.id !== item.id);
+          // In partial fulfillment with 0 stock, preserve item history with quantity 0
+          item.quantity = 0;
+          await manager.save(item);
         }
       }
 
@@ -186,20 +201,21 @@ export class OrdersService {
       }
 
       if (!anyItemReserved && items.length > 0) {
-        // If nothing was reserved, the order cannot proceed.
-        order.status = OrderStatus.ERROR;
-        order.discountValue = 0;
-        order.totalValue = 0;
+        throw new ConflictException(
+          `Nenhum item do pedido possui estoque disponível no momento para atendimento.`,
+        );
+      }
+
+      order.status = OrderStatus.RESERVED;
+      const hasVipDiscount =
+        Number(order.discountValue) > 0 || Boolean(order.customer?.isVip);
+      if (hasVipDiscount) {
+        const discount = Number((newTotalValue * 0.1).toFixed(2));
+        order.discountValue = discount;
+        order.totalValue = Number((newTotalValue - discount).toFixed(2));
       } else {
-        order.status = OrderStatus.RESERVED;
-        if (order.customer?.isVip) {
-          const discount = Number((newTotalValue * 0.10).toFixed(2));
-          order.discountValue = discount;
-          order.totalValue = Number((newTotalValue - discount).toFixed(2));
-        } else {
-          order.discountValue = 0;
-          order.totalValue = newTotalValue;
-        }
+        order.discountValue = 0;
+        order.totalValue = newTotalValue;
       }
       return manager.save(order);
     });
@@ -215,19 +231,12 @@ export class OrdersService {
         );
       }
 
+      // Consome e remove as reservas temporárias (o débito contábil de saldo já ocorreu na reserva)
       const reservations = await manager.find(StockReservation, {
         where: { orderId: order.id },
       });
-      reservations.sort((a, b) => a.productId.localeCompare(b.productId));
 
       for (const res of reservations) {
-        const movement = new StockMovement();
-        movement.productId = res.productId;
-        movement.quantity = res.quantity;
-        movement.type = StockMovementType.CONSUME_RESERVE;
-        movement.referenceId = order.id;
-        await manager.save(movement);
-
         await manager.remove(res);
       }
 
@@ -243,7 +252,7 @@ export class OrdersService {
 
       if (
         order.status === OrderStatus.FINISHED ||
-        order.status === OrderStatus.CANCELADO
+        order.status === OrderStatus.CANCELED
       ) {
         throw new BadRequestException(
           `Não é possível cancelar um pedido que já está ${order.status === OrderStatus.FINISHED ? 'Concluído' : 'Cancelado'}.`,
@@ -260,29 +269,18 @@ export class OrdersService {
         reservations.sort((a, b) => a.productId.localeCompare(b.productId));
 
         for (const res of reservations) {
-          // Lock stock again to update
-          const stock = await manager.findOne(Stock, {
-            where: { productId: res.productId },
-            ...(this.isSqlite() ? {} : { lock: { mode: 'pessimistic_write' } }),
-          });
-
-          if (stock) {
-            stock.availableQuantity += res.quantity;
-            await manager.save(stock);
-
-            const movement = new StockMovement();
-            movement.productId = res.productId;
-            movement.quantity = res.quantity;
-            movement.type = StockMovementType.CANCEL_RESERVE;
-            movement.referenceId = order.id;
-            await manager.save(movement);
-          }
-
+          await this.applyStockMutation(
+            manager,
+            res.productId,
+            res.quantity,
+            StockMovementType.CANCEL_RESERVE,
+            order.id,
+          );
           await manager.remove(res);
         }
       }
 
-      order.status = OrderStatus.CANCELADO;
+      order.status = OrderStatus.CANCELED;
       return manager.save(order);
     });
   }
@@ -294,14 +292,14 @@ export class OrdersService {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const order = await manager.findOne(Order, {
         where: { id: orderId },
-        relations: { items: true },
+        relations: { items: true, customer: true },
       });
 
       if (!order) throw new NotFoundException('Pedido não encontrado');
 
       if (
         order.status === OrderStatus.FINISHED ||
-        order.status === OrderStatus.CANCELADO ||
+        order.status === OrderStatus.CANCELED ||
         order.status === OrderStatus.ERROR
       ) {
         throw new BadRequestException(
@@ -310,84 +308,94 @@ export class OrdersService {
       }
 
       // Map new items
-      let newTotalValue = 0;
-      const newItemsMap = new Map<string, number>(); // productId -> quantity
-
+      const newItemsMap = new Map<string, number>();
       for (const itemDto of dto.items) {
-        const product = await manager.findOne(Product, {
-          where: { id: itemDto.productId },
-        });
-        if (!product)
-          throw new NotFoundException(`Produto ${itemDto.productId} não encontrado`);
-
-        const currentQty = newItemsMap.get(itemDto.productId) || 0;
-        newItemsMap.set(itemDto.productId, currentQty + itemDto.quantity);
+        newItemsMap.set(
+          itemDto.productId,
+          (newItemsMap.get(itemDto.productId) || 0) + itemDto.quantity,
+        );
       }
 
+      // Map old items
+      const oldItemsMap = new Map<string, number>();
+      for (const item of order.items || []) {
+        oldItemsMap.set(item.productId, item.quantity);
+      }
+
+      let newTotalValue = 0;
+
+      // If order is currently RESERVED, dynamically adjust stock reservations under lock
       if (order.status === OrderStatus.RESERVED) {
-        // Collect existing reservations for this order
-        const existingReservations = await manager.find(StockReservation, {
+        const allProductIds = Array.from(
+          new Set([...newItemsMap.keys(), ...oldItemsMap.keys()]),
+        );
+        allProductIds.sort();
+
+        const oldReservations = await manager.find(StockReservation, {
           where: { orderId: order.id },
         });
         const oldReservationMap = new Map<string, StockReservation>();
-        for (const res of existingReservations) {
+        for (const res of oldReservations) {
           oldReservationMap.set(res.productId, res);
         }
 
-        // Collect all distinct product IDs involved in old or new items, sorted for deadlock prevention
-        const allProductIds = Array.from(
-          new Set([...oldReservationMap.keys(), ...newItemsMap.keys()]),
-        ).sort();
-
         for (const productId of allProductIds) {
-          const oldQty = oldReservationMap.get(productId)?.quantity || 0;
+          const oldQty = oldItemsMap.get(productId) || 0;
           const newQty = newItemsMap.get(productId) || 0;
           const delta = newQty - oldQty;
 
           if (delta === 0) continue;
 
-          const stock = await manager.findOne(Stock, {
-            where: { productId },
-            ...(this.isSqlite() ? {} : { lock: { mode: 'pessimistic_write' } }),
-          });
-          if (!stock) {
-            throw new NotFoundException(
-              `Estoque para o produto ${productId} não encontrado`,
-            );
-          }
-
           if (delta > 0) {
-            // Need more stock
-            if (stock.availableQuantity < delta) {
-              throw new ConflictException(
-                `Estoque insuficiente para expandir a reserva do produto ${productId}. Disponível: ${stock.availableQuantity}, Necessário adicional: ${delta}`,
+            let actualDelta = delta;
+            if (order.fulfillmentStrategy === 'PARTIAL') {
+              const stock = await manager.findOne(Stock, {
+                where: { productId },
+                ...(this.isSqlite()
+                  ? {}
+                  : { lock: { mode: 'pessimistic_write' } }),
+              });
+              const avail = stock ? stock.availableQuantity : 0;
+              actualDelta = Math.min(delta, Math.max(0, avail));
+            }
+
+            if (actualDelta > 0) {
+              await this.applyStockMutation(
+                manager,
+                productId,
+                -actualDelta,
+                StockMovementType.RESERVE,
+                order.id,
+              );
+
+              let reservation = oldReservationMap.get(productId);
+              if (!reservation) {
+                reservation = new StockReservation();
+                reservation.orderId = order.id;
+                reservation.productId = productId;
+              }
+              reservation.quantity = oldQty + actualDelta;
+              await manager.save(reservation);
+              newItemsMap.set(productId, oldQty + actualDelta);
+            } else if (order.fulfillmentStrategy !== 'PARTIAL') {
+              await this.applyStockMutation(
+                manager,
+                productId,
+                -delta,
+                StockMovementType.RESERVE,
+                order.id,
               );
             }
-            stock.availableQuantity -= delta;
-            await manager.save(stock);
-
-            // Update or create reservation
-            let reservation = oldReservationMap.get(productId);
-            if (!reservation) {
-              reservation = new StockReservation();
-              reservation.orderId = order.id;
-              reservation.productId = productId;
-            }
-            reservation.quantity = newQty;
-            await manager.save(reservation);
-
-            // Audit movement
-            const movement = new StockMovement();
-            movement.productId = productId;
-            movement.quantity = -delta;
-            movement.type = StockMovementType.RESERVE;
-            movement.referenceId = order.id;
-            await manager.save(movement);
           } else {
-            // Return excess stock
+            // Return excess stock (return Math.abs(delta))
             const returnQty = Math.abs(delta);
-            stock.availableQuantity += returnQty;
-            await manager.save(stock);
+            await this.applyStockMutation(
+              manager,
+              productId,
+              returnQty,
+              StockMovementType.CANCEL_RESERVE,
+              order.id,
+            );
 
             const reservation = oldReservationMap.get(productId);
             if (reservation) {
@@ -398,14 +406,6 @@ export class OrdersService {
                 await manager.remove(reservation);
               }
             }
-
-            // Audit movement
-            const movement = new StockMovement();
-            movement.productId = productId;
-            movement.quantity = returnQty;
-            movement.type = StockMovementType.CANCEL_RESERVE;
-            movement.referenceId = order.id;
-            await manager.save(movement);
           }
         }
       }
@@ -425,8 +425,10 @@ export class OrdersService {
         newTotalValue += Number(product!.price) * qty;
       }
 
-      if (order.customer?.isVip) {
-        const discount = Number((newTotalValue * 0.10).toFixed(2));
+      const hasVipDiscount =
+        Number(order.discountValue) > 0 || Boolean(order.customer?.isVip);
+      if (hasVipDiscount) {
+        const discount = Number((newTotalValue * 0.1).toFixed(2));
         order.discountValue = discount;
         order.totalValue = Number((newTotalValue - discount).toFixed(2));
       } else {
@@ -472,7 +474,13 @@ export class OrdersService {
     limit = 10,
     status?: string,
     search?: string,
-  ): Promise<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }> {
+  ): Promise<{
+    data: Order[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const p = Math.max(1, Number(page) || 1);
     const l = Math.max(1, Number(limit) || 10);
 

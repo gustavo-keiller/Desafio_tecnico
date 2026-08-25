@@ -274,7 +274,11 @@ export default function InventoryPage() {
                   icon: () => null, 
                   badgeStyle: { background: '#F1F5F9', color: '#475569', borderColor: '#CBD5E1' } 
                 };
-                const isPositive = m.quantity > 0;
+                const absQty = Math.abs(m.quantity);
+                const isEntryOrReturn = m.type === 'IN' || m.type === 'CANCEL_RESERVE';
+                const qtyColor = isEntryOrReturn ? '#059669' : m.type === 'RESERVE' ? '#D97706' : '#2563EB';
+                const qtyPrefix = isEntryOrReturn ? '+' : '-';
+
                 return (
                   <tr key={m.id}>
                     <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(m.createdAt).toLocaleString('pt-BR')}</td>
@@ -285,8 +289,8 @@ export default function InventoryPage() {
                         {conf.label}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700, color: isPositive ? 'var(--success)' : 'var(--danger)' }}>
-                      {isPositive ? `+${m.quantity}` : m.quantity} un
+                    <td style={{ fontWeight: 700, color: qtyColor }}>
+                      {qtyPrefix}{absQty} un
                     </td>
                     <td>
                       <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', background: '#F1F5F9', padding: '0.2rem 0.45rem', borderRadius: '4px', color: '#334155' }}>

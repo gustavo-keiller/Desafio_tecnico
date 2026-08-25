@@ -58,7 +58,7 @@ export class RolesGuard implements CanActivate {
 
     // Check Roles if specified
     if (requiredRoles && requiredRoles.length > 0) {
-      const hasRole = requiredRoles.includes(user.role as Role);
+      const hasRole = requiredRoles.includes(user.role);
       if (!hasRole) {
         throw new ForbiddenException(
           `Requer um dos seguintes cargos: ${requiredRoles.join(', ')}`,

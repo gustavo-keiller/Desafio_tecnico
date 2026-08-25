@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../entities/user.entity';
@@ -25,7 +30,8 @@ export class UpdateUserDto {
 export class UsersService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
-    @InjectRepository(Customer) private customerRepository: Repository<Customer>,
+    @InjectRepository(Customer)
+    private customerRepository: Repository<Customer>,
     @InjectRepository(Order) private orderRepository: Repository<Order>,
   ) {}
 
@@ -41,11 +47,13 @@ export class UsersService {
 
   async create(dto: CreateUserDto): Promise<User> {
     const existing = await this.userRepository.findOneBy({ email: dto.email });
-    if (existing) throw new ConflictException('Já existe um usuário com este e-mail');
-    
+    if (existing)
+      throw new ConflictException('Já existe um usuário com este e-mail');
+
+    const isClient = dto.role === UserRole.CLIENT;
     const user = this.userRepository.create({
       ...dto,
-      isVip: Boolean(dto.isVip),
+      isVip: isClient ? Boolean(dto.isVip) : false,
     });
     const savedUser = await this.userRepository.save(user);
 
@@ -65,13 +73,22 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
     if (dto.email && dto.email !== user.email) {
-      const existing = await this.userRepository.findOneBy({ email: dto.email });
-      if (existing) throw new ConflictException('Já existe um usuário com este e-mail');
+      const existing = await this.userRepository.findOneBy({
+        email: dto.email,
+      });
+      if (existing)
+        throw new ConflictException('Já existe um usuário com este e-mail');
     }
     Object.assign(user, dto);
+
+    // VIP is strictly restricted to Clients
+    if (user.role !== UserRole.CLIENT) {
+      user.isVip = false;
+    }
+
     const savedUser = await this.userRepository.save(user);
 
-    // If user is/became a Client, sync customer record
+    // If user is a Client, sync customer record
     if (savedUser.role === UserRole.CLIENT) {
       await this.customerRepository.save({
         id: savedUser.id,
@@ -88,7 +105,9 @@ export class UsersService {
     const user = await this.findOne(id);
 
     // Check if user has orders before deleting
-    const existingOrders = await this.orderRepository.count({ where: { customerId: id } });
+    const existingOrders = await this.orderRepository.count({
+      where: { customerId: id },
+    });
     if (existingOrders > 0) {
       throw new ConflictException(
         `Este usuário possui ${existingOrders} pedido(s) vinculado(s) e não pode ser excluído do sistema.`,
@@ -110,6 +129,11 @@ export class UsersService {
 
   async setVipStatus(id: string, isVip: boolean): Promise<User> {
     const user = await this.findOne(id);
+    if (user.role !== UserRole.CLIENT) {
+      throw new BadRequestException(
+        'Apenas usuários com o perfil de Cliente podem receber status VIP.',
+      );
+    }
     user.isVip = Boolean(isVip);
     const savedUser = await this.userRepository.save(user);
 

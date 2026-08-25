@@ -96,7 +96,10 @@ async function bootstrap() {
   const productB = await productRepo.save({ name: 'Produto B', price: 50.0 });
   await stockRepo.save({ productId: productB.id, availableQuantity: 50 });
 
-  const productC = await productRepo.save({ name: 'Produto C (Sem Estoque)', price: 150.0 });
+  const productC = await productRepo.save({
+    name: 'Produto C (Sem Estoque)',
+    price: 150.0,
+  });
   await stockRepo.save({ productId: productC.id, availableQuantity: 0 });
 
   console.log('Database seeded successfully.');

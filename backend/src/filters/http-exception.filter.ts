@@ -22,9 +22,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const exceptionResponse = isHttpException
-      ? exception.getResponse()
-      : null;
+    const exceptionResponse = isHttpException ? exception.getResponse() : null;
 
     let message: any = 'Internal server error';
 
@@ -41,7 +39,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const errorResponse = {
       statusCode: status,
       error: isHttpException
-        ? (typeof exceptionResponse === 'object' && (exceptionResponse as any).error) || exception.name
+        ? (typeof exceptionResponse === 'object' &&
+            (exceptionResponse as any).error) ||
+          exception.name
         : 'Internal Server Error',
       message: message,
       timestamp: new Date().toISOString(),

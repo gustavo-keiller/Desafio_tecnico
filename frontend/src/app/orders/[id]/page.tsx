@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, authFetch } from '../../auth';
 import { 
@@ -18,6 +18,7 @@ const STATUS_LABELS: Record<string, string> = {
   RESERVED: 'Em Separação',
   FINISHED: 'Concluído',
   ERROR: 'Erro',
+  CANCELED: 'Cancelado',
   CANCELADO: 'Cancelado',
 };
 
@@ -25,7 +26,6 @@ export default function OrderDetailsPage() {
   const params = useParams();
   const orderId = params.id as string;
   
-  const router = useRouter();
   const { user } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +126,10 @@ export default function OrderDetailsPage() {
   if (loading) return <div>Carregando detalhes do pedido...</div>;
   if (!order) return <div style={{ color: 'var(--danger)' }}>{error || 'Pedido não encontrado'}</div>;
 
-  const canEdit = order.status === 'ORDERED' && ['Client', 'Seller', 'Admin'].includes(user?.role || '');
+  const isClient = user?.role === 'Client';
+  const isStaff = user?.role === 'Admin' || user?.role === 'Seller';
+  const canEdit = (order.status === 'ORDERED' && isClient) ||
+    (['ORDERED', 'APPROVED', 'RESERVED'].includes(order.status) && isStaff);
 
   return (
     <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -193,14 +196,18 @@ export default function OrderDetailsPage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
               {order.status === 'FINISHED' 
                 ? 'Pedido concluído. Itens finalizados.'
-                : order.status === 'CANCELADO'
+                : (order.status === 'CANCELED')
                 ? 'Pedido cancelado.'
-                : 'Itens bloqueados para edição direta após a aprovação comercial.'}
+                : isClient
+                ? 'Itens bloqueados para edição direta pelo cliente após a aprovação comercial.'
+                : 'Itens bloqueados para edição.'}
             </p>
           )}
         </div>
         {canEdit && !isEditing && (
-          <button className="btn btn-outline" onClick={startEdit}>Editar Itens</button>
+          <button className="btn btn-outline" onClick={startEdit}>
+            Editar Itens {order.status === 'RESERVED' && '(Ajusta Reserva)'}
+          </button>
         )}
       </div>
 

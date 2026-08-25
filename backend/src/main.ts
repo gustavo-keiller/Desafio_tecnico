@@ -24,7 +24,9 @@ async function bootstrap() {
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('API de Gestão de Pedidos')
-    .setDescription('API do sistema de Gestão de Pedidos com reserva de estoque, concorrência e gerenciamento de estados')
+    .setDescription(
+      'API do sistema de Gestão de Pedidos com reserva de estoque, concorrência e gerenciamento de estados',
+    )
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);

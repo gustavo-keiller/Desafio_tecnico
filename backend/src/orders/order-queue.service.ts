@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 
 export enum QueuePriority {
   REPLENISH = 100, // Highest: Stock replenishment unlocks pending orders immediately
-  CANCEL = 50,     // High: Free up stock quickly for other buyers
+  CANCEL = 50, // High: Free up stock quickly for other buyers
   VIP_CLIENT = 10, // Medium-High: VIP / Favorite clients jump the queue
-  STANDARD = 1,    // Normal: Standard orders & operations
+  STANDARD = 1, // Normal: Standard orders & operations
 }
 
 interface QueueTask {
@@ -31,7 +31,7 @@ export interface QueueMetrics {
 @Injectable()
 export class OrderQueueService {
   private readonly logger = new Logger(OrderQueueService.name);
-  
+
   // Partitioned queues: tasks with different partition keys execute in parallel
   private queues: Map<string, QueueTask[]> = new Map();
   private processingPartitions: Set<string> = new Set();

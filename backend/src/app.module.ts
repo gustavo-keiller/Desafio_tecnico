@@ -21,14 +21,22 @@ import { PermissionsModule } from './auth/permissions/permissions.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: process.env.NODE_ENV === 'test' }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === 'test',
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const isTest = process.env.NODE_ENV === 'test' || process.env.DB_TYPE === 'sqlite';
-        const dbType = isTest ? 'sqlite' : (configService.get<string>('DB_TYPE') || 'mssql');
-        console.log(`[Database Factory] NODE_ENV=${process.env.NODE_ENV}, DB_TYPE=${process.env.DB_TYPE} -> selected: ${dbType}`);
+        const isTest =
+          process.env.NODE_ENV === 'test' || process.env.DB_TYPE === 'sqlite';
+        const dbType = isTest
+          ? 'sqlite'
+          : configService.get<string>('DB_TYPE') || 'mssql';
+        console.log(
+          `[Database Factory] NODE_ENV=${process.env.NODE_ENV}, DB_TYPE=${process.env.DB_TYPE} -> selected: ${dbType}`,
+        );
         const entities = [
           Customer,
           Product,

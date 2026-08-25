@@ -20,7 +20,7 @@ export enum OrderStatus {
   RESERVED = 'RESERVED',
   FINISHED = 'FINISHED',
   ERROR = 'ERROR',
-  CANCELADO = 'CANCELADO',
+  CANCELED = 'CANCELED',
 }
 
 @Entity('orders')
@@ -58,6 +58,7 @@ export class Order {
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
   discountValue: number;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 

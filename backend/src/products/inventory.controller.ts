@@ -5,7 +5,10 @@ import { ProductsService } from './products.service';
 import { RolesGuard } from '../auth/roles/roles.guard';
 import { RequirePermissions } from '../auth/permissions/permissions.decorator';
 import { Permission } from '../auth/permissions/permissions.enum';
-import { OrderQueueService, QueuePriority } from '../orders/order-queue.service';
+import {
+  OrderQueueService,
+  QueuePriority,
+} from '../orders/order-queue.service';
 
 class ReplenishDto {
   @IsString()

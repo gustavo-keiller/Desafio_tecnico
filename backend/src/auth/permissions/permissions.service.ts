@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RolePermission } from '../../entities/role-permission.entity';
-import { Permission, PERMISSIONS_CATALOG, PermissionDefinition } from './permissions.enum';
+import {
+  Permission,
+  PERMISSIONS_CATALOG,
+  PermissionDefinition,
+} from './permissions.enum';
 import { Role } from '../roles/roles.decorator';
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -71,7 +75,10 @@ export class PermissionsService {
     return DEFAULT_ROLE_PERMISSIONS[role as Role] || [];
   }
 
-  async getEffectivePermissionsForUser(user: { role: string; customPermissions?: string[] | null }): Promise<string[]> {
+  async getEffectivePermissionsForUser(user: {
+    role: string;
+    customPermissions?: string[] | null;
+  }): Promise<string[]> {
     if (user.role === Role.ADMIN) {
       return Object.values(Permission);
     }
@@ -83,10 +90,13 @@ export class PermissionsService {
     }
 
     // Intersect user custom permissions with active role permissions (user can have all or FEWER than role)
-    return user.customPermissions.filter(p => rolePermissions.includes(p));
+    return user.customPermissions.filter((p) => rolePermissions.includes(p));
   }
 
-  async updateRolePermissions(role: string, permissions: string[]): Promise<RolePermission> {
+  async updateRolePermissions(
+    role: string,
+    permissions: string[],
+  ): Promise<RolePermission> {
     // If updating Admin, force ALL permissions
     let finalPermissions = permissions;
     if (role === Role.ADMIN) {
@@ -95,7 +105,10 @@ export class PermissionsService {
 
     let record = await this.rolePermissionRepo.findOneBy({ role });
     if (!record) {
-      record = this.rolePermissionRepo.create({ role, permissions: finalPermissions });
+      record = this.rolePermissionRepo.create({
+        role,
+        permissions: finalPermissions,
+      });
     } else {
       record.permissions = finalPermissions;
     }

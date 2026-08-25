@@ -1,0 +1,1039 @@
+{
+  "info": {
+    "_postman_id": "a8f3b2d1-9c8e-4a7b-b5d3-8e1f0c2a9d4e",
+    "name": "Gestão de Pedidos ERP - API Collection",
+    "description": "Collection completa para testes da API de Gestão de Pedidos, Concorrência de Estoque, Fila com Prioridade e Matriz RBAC Granular.\n\n### Perfis Pré-configurados (Header `x-user-id`):\n- **Super Admin**: `44444444-4444-4444-4444-444444444444`\n- **Vendedor (Sally)**: `66666666-6666-6666-6666-666666666666`\n- **Gerente de Estoque (Joe)**: `33333333-3333-3333-3333-333333333333`\n- **Cliente VIP (Alice)**: `11111111-1111-1111-1111-111111111111`\n- **Cliente Padrão (Bob)**: `22222222-2222-2222-2222-222222222222`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Pedidos (Orders)",
+      "description": "Endpoints do ciclo de vida de pedidos: Criação -> Aprovação -> Reserva (Separação) -> Conclusão (Faturamento) ou Cancelamento.",
+      "item": [
+        {
+          "name": "1.1 Listar Pedidos (Filtros & Paginação)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text",
+                "description": "ID do usuário autenticado"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders?page=1&limit=10&status=&search=",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "ORDERED, APPROVED, RESERVED, FINISHED, CANCELED"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Busca por ID ou nome do cliente"
+                }
+              ]
+            },
+            "description": "Lista pedidos. Se executado como Cliente, retorna apenas seus próprios pedidos. Se Admin/Vendedor/Estoque, lista todos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.length > 0) {",
+                  "    pm.collectionVariables.set(\"orderId\", response.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Obter Pedido por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}"]
+            },
+            "description": "Obtém detalhes do pedido com itens e dados do cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Estatísticas de Pedidos (Stats)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "stats"]
+            },
+            "description": "Retorna contadores de pedidos agrupados por status e faturamento total."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 Métricas da Fila de Execução (Queue Metrics)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text",
+                "description": "Requer permissão users:manage (Super Admin)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/queue/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "queue", "metrics"]
+            },
+            "description": "Retorna métricas em tempo real da fila assíncrona com prioridades (total processado, tarefas pendentes, tempo médio de espera e execução)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 Criar Pedido (Cliente VIP - Alice)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{clientVipUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfillmentStrategy\": \"ALL\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Cria um novo pedido como Cliente VIP. Aplica automaticamente desconto de 10% VIP e prioridade na fila."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (response && response.id) {",
+                  "    pm.collectionVariables.set(\"orderId\", response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 Criar Pedido (Vendedor - Sally para Cliente Bob)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{sellerUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{clientStandardUserId}}\",\n  \"fulfillmentStrategy\": \"ALL\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Cria um pedido como Vendedor em nome de um cliente específico."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (response && response.id) {",
+                  "    pm.collectionVariables.set(\"orderId\", response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.7 Editar Itens do Pedido (Status ORDERED)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{clientVipUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 3\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "items"]
+            },
+            "description": "Permite editar itens do pedido enquanto ele estiver no status inicial ORDERED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.8 Aprovar Pedido (Vendedor - Sally)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{sellerUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "approve"]
+            },
+            "description": "Aprova comercialmente o pedido (Transição ORDERED -> APPROVED)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 or 200\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.9 Iniciar Separação / Reservar Estoque (Estoque - Joe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{inventoryUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "reserve"]
+            },
+            "description": "Inicia a separação física e bloqueia o saldo de estoque com Lock Pessimista (Transição APPROVED -> RESERVED). Registra no log de auditoria `stock_movements`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 or 200\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.10 Concluir Separação / Faturar Pedido (Estoque - Joe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{inventoryUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "confirm"]
+            },
+            "description": "Finaliza a separação e conclui o pedido definitivamente (Transição RESERVED -> FINISHED). Baixa as reservas temporárias."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 or 200\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.11 Cancelar Pedido (Estorno de Estoque)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "cancel"]
+            },
+            "description": "Cancela o pedido (Transição para CANCELED). Se houver estoque reservado, realiza o estorno imediato com prioridade alta na fila."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 or 200\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Produtos & Estoque (Products & Inventory)",
+      "description": "Gerenciamento do catálogo de produtos, saldos de estoque e extrato de auditoria de movimentações.",
+      "item": [
+        {
+          "name": "2.1 Listar Produtos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Lista produtos cadastrados no catálogo com seus respectivos saldos de estoque."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.length > 0) {",
+                  "    pm.collectionVariables.set(\"productId\", response.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Criar Novo Produto (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Notebook Gamer RTX 4080\",\n  \"price\": 12500.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            },
+            "description": "Cadastra um novo produto no catálogo (inicia com saldo de estoque zerado)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (response && response.id) {",
+                  "    pm.collectionVariables.set(\"productId\", response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Consultar Saldo de Estoque de um Produto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/stock",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "stock"]
+            },
+            "description": "Retorna o saldo disponível atual do produto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Repor Estoque (Estoque - Joe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{inventoryUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/replenish",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "replenish"]
+            },
+            "description": "Adiciona saldo de estoque com prioridade máxima (REPLENISH = 100) na fila e gera registro contábil `IN` no extrato de auditoria."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 or 200\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 Extrato de Movimentações de Estoque (Audit Ledger)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{inventoryUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/movements?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "movements"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Retorna o log imutável de todas as movimentações de estoque (IN, OUT, RESERVE, RELEASE) com vínculo aos pedidos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Clientes (Customers)",
+      "description": "Consulta de clientes cadastrados no sistema.",
+      "item": [
+        {
+          "name": "3.1 Listar Clientes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{activeUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            },
+            "description": "Retorna todos os clientes cadastrados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const response = pm.response.json();",
+                  "if (Array.isArray(response) && response.length > 0) {",
+                  "    pm.collectionVariables.set(\"customerId\", response[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Usuários & RBAC (Users)",
+      "description": "Gerenciamento completo de usuários, cargos, flag VIP e permissões customizadas individuais.",
+      "item": [
+        {
+          "name": "4.1 Listar Usuários",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Lista todos os usuários do sistema."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Obter Usuário por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{clientVipUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{clientVipUserId}}"]
+            },
+            "description": "Obtém detalhes de um usuário específico."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Criar Usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carlos Vendas\",\n  \"email\": \"carlos.vendas@example.com\",\n  \"role\": \"Seller\",\n  \"isVip\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Cria um novo usuário com um determinado cargo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 Atualizar Usuário",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Jones Atualizado\",\n  \"email\": \"bob.updated@example.com\",\n  \"role\": \"Client\",\n  \"isVip\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{clientStandardUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{clientStandardUserId}}"]
+            },
+            "description": "Atualiza dados cadastrais, cargo ou permissões individuais do usuário."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.5 Alterar Status VIP do Usuário (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isVip\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{clientStandardUserId}}/vip",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{clientStandardUserId}}", "vip"]
+            },
+            "description": "Ativa ou desativa o status de Cliente VIP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Matriz de Permissões (Permissions)",
+      "description": "Gestão dinâmica da matriz RBAC e catálogo de permissões granulares.",
+      "item": [
+        {
+          "name": "5.1 Catálogo de Todas as Permissões",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/permissions/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "catalog"]
+            },
+            "description": "Retorna o catálogo completo das 14 permissões atômicas com descrição e categoria."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Matriz de Permissões por Cargo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/permissions/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "roles"]
+            },
+            "description": "Retorna a matriz com todas as permissões atribuídas a cada cargo (Admin, Seller, Client, InventoryManager)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Atualizar Permissões de um Cargo (Vendedor)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{adminUserId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"orders:read_all\",\n    \"orders:create\",\n    \"orders:approve\",\n    \"products:read\",\n    \"customers:read\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions/roles/Seller",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", "roles", "Seller"]
+            },
+            "description": "Atualiza em tempo de execução o conjunto de permissões do cargo especificado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "44444444-4444-4444-4444-444444444444",
+      "type": "string"
+    },
+    {
+      "key": "sellerUserId",
+      "value": "66666666-6666-6666-6666-666666666666",
+      "type": "string"
+    },
+    {
+      "key": "inventoryUserId",
+      "value": "33333333-3333-3333-3333-333333333333",
+      "type": "string"
+    },
+    {
+      "key": "clientVipUserId",
+      "value": "11111111-1111-1111-1111-111111111111",
+      "type": "string"
+    },
+    {
+      "key": "clientStandardUserId",
+      "value": "22222222-2222-2222-2222-222222222222",
+      "type": "string"
+    },
+    {
+      "key": "activeUserId",
+      "value": "44444444-4444-4444-4444-444444444444",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "11111111-1111-1111-1111-111111111111",
+      "type": "string"
+    }
+  ]
+}

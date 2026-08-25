@@ -27,7 +27,8 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
     code: Permission.USERS_MANAGE,
     name: 'Gerenciar Usuários & Permissões',
     category: 'Usuários',
-    description: 'Criar, editar e excluir usuários, além de alterar a matriz de permissões por cargo.',
+    description:
+      'Criar, editar e excluir usuários, além de alterar a matriz de permissões por cargo.',
   },
   {
     code: Permission.ORDERS_READ_ALL,
@@ -51,19 +52,22 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
     code: Permission.ORDERS_APPROVE,
     name: 'Aprovar Pedidos',
     category: 'Pedidos',
-    description: 'Aprovar comercialmente pedidos pendentes (Criado -> Aprovado).',
+    description:
+      'Aprovar comercialmente pedidos pendentes (Criado -> Aprovado).',
   },
   {
     code: Permission.ORDERS_RESERVE,
     name: 'Iniciar Separação / Reservar Estoque',
     category: 'Pedidos',
-    description: 'Anunciar início da separação física e bloquear saldo de estoque (Aprovado -> Em Separação).',
+    description:
+      'Anunciar início da separação física e bloquear saldo de estoque (Aprovado -> Em Separação).',
   },
   {
     code: Permission.ORDERS_CONFIRM,
     name: 'Finalizar Separação / Concluir Pedido',
     category: 'Pedidos',
-    description: 'Confirmar finalização da separação e faturamento (Em Separação -> Concluído).',
+    description:
+      'Confirmar finalização da separação e faturamento (Em Separação -> Concluído).',
   },
   {
     code: Permission.ORDERS_UPDATE_ITEMS,

@@ -6,7 +6,6 @@ import {
   Min,
   IsOptional,
   IsEnum,
-  IsBoolean,
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
